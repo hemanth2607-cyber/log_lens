@@ -1,0 +1,46 @@
+# === Local Configurations and Keys ===
+backend/config.json
+.env
+.env.local
+.env.*.local
+
+# === Generated Test Logs and Source Code ===
+*.log
+massive_production.log
+huge_production.log
+double_errors.log
+triple_errors.log
+OrderProcessor.java
+PaymentService.java
+fixed_source_code.zip
+
+# === Node / Frontend Dependencies ===
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# === Python / Backend Dependencies ===
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# === OS and Editor Specific ===
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
