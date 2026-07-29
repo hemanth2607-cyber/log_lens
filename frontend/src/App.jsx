@@ -68,7 +68,7 @@ export default function App() {
     setWorkspaceFiles(files);
   };
 
-  // CLIENT-SIDE SLICING ENGINE (Bypasses Vercel's 4.5MB Serverless Upload Limit)
+  // ADVANCED STITCHED MULTI-ANOMALY PRE-SLICER
   const preSliceLogs = (text) => {
     const lines = text.split('\n');
     const totalLines = lines.length;
@@ -79,24 +79,49 @@ export default function App() {
     }
 
     const anomalyPattern = /\b(ERROR|CRITICAL|FATAL|EXCEPTION|SEVERE|FAIL)\b/i;
-    let targetIdx = -1;
+    const errorIndices = [];
 
+    // 1. Locate all error occurrences throughout the 100,000 lines
     for (let i = 0; i < totalLines; i++) {
       if (anomalyPattern.test(lines[i])) {
-        targetIdx = i;
-        break;
+        errorIndices.push(i);
       }
     }
 
-    if (targetIdx === -1) {
-      return text; // Return whole log if no clear anomaly matches
+    if (errorIndices.length === 0) {
+      return text;
     }
 
-    // Capture ±50 lines of context to allow the backend plenty of space
-    const start = Math.max(0, targetIdx - 50);
-    const end = Math.min(totalLines, targetIdx + 51);
+    // 2. Group closely occurring error indices (within 30 lines) to avoid overlapping slices
+    const groups = [];
+    let currentGroup = [errorIndices[0]];
 
-    return lines.slice(start, end).join('\n');
+    for (let i = 1; i < errorIndices.length; i++) {
+      if (errorIndices[i] - currentGroup[currentGroup.length - 1] <= 30) {
+        currentGroup.push(errorIndices[i]);
+      } else {
+        groups.push(currentGroup);
+        currentGroup = [errorIndices[i]];
+      }
+    }
+    groups.push(currentGroup);
+
+    // Limit to top 5 distinct anomaly groups to optimize API speeds
+    const targetGroups = groups.slice(0, 5);
+
+    // 3. Extract ±50 lines around each distinct group and stitch them together
+    const stitchedLines = [];
+    targetGroups.forEach((group) => {
+      const anchorIndex = group[0];
+      const start = Math.max(0, anchorIndex - 50);
+      const end = Math.min(totalLines, anchorIndex + 51);
+      
+      for (let i = start; i < end; i++) {
+        stitchedLines.push(lines[i]);
+      }
+    });
+
+    return stitchedLines.join('\n');
   };
 
   const runAnalysis = async () => {
@@ -111,7 +136,7 @@ export default function App() {
     setDownloadId(null);
     setModifiedFiles([]);
     
-    // Execute client-side pre-slicing
+    // Execute multi-sector pre-slicing
     const optimizedLogs = preSliceLogs(rawLogs);
 
     const formData = new FormData();
