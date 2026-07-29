@@ -68,6 +68,37 @@ export default function App() {
     setWorkspaceFiles(files);
   };
 
+  // CLIENT-SIDE SLICING ENGINE (Bypasses Vercel's 4.5MB Serverless Upload Limit)
+  const preSliceLogs = (text) => {
+    const lines = text.split('\n');
+    const totalLines = lines.length;
+    
+    // Only pre-slice if the file is moderately large (> 1,000 lines)
+    if (totalLines <= 1000) {
+      return text;
+    }
+
+    const anomalyPattern = /\b(ERROR|CRITICAL|FATAL|EXCEPTION|SEVERE|FAIL)\b/i;
+    let targetIdx = -1;
+
+    for (let i = 0; i < totalLines; i++) {
+      if (anomalyPattern.test(lines[i])) {
+        targetIdx = i;
+        break;
+      }
+    }
+
+    if (targetIdx === -1) {
+      return text; // Return whole log if no clear anomaly matches
+    }
+
+    // Capture ±50 lines of context to allow the backend plenty of space
+    const start = Math.max(0, targetIdx - 50);
+    const end = Math.min(totalLines, targetIdx + 51);
+
+    return lines.slice(start, end).join('\n');
+  };
+
   const runAnalysis = async () => {
     if (!rawLogs.trim()) {
       alert('Log entries cannot be empty.');
@@ -80,10 +111,11 @@ export default function App() {
     setDownloadId(null);
     setModifiedFiles([]);
     
+    // Execute client-side pre-slicing
+    const optimizedLogs = preSliceLogs(rawLogs);
+
     const formData = new FormData();
-    
-    // Bypasses the 1024KB limit by packing logs into a virtual Blob file stream
-    const logsBlob = new Blob([rawLogs], { type: 'text/plain' });
+    const logsBlob = new Blob([optimizedLogs], { type: 'text/plain' });
     formData.append('raw_logs', logsBlob, 'uploaded_logs.log');
     
     formData.append('mode', diagnosticMode);
@@ -118,8 +150,10 @@ export default function App() {
     }
     setFixStatus('processing');
     
+    const optimizedLogs = preSliceLogs(rawLogs);
+
     const formData = new FormData();
-    const logsBlob = new Blob([rawLogs], { type: 'text/plain' });
+    const logsBlob = new Blob([optimizedLogs], { type: 'text/plain' });
     formData.append('raw_logs', logsBlob, 'uploaded_logs.log');
     
     workspaceFiles.forEach((file) => {
@@ -219,7 +253,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* Project Source Files Upload Box */}
+          {/* Project Source Files Box */}
           <div className="bg-gradient-to-b from-ice-50/90 to-white/95 border border-ice-200/80 rounded-xl shadow-md flex flex-col overflow-hidden">
             <div className="flex items-center justify-between bg-gradient-to-r from-ice-100 to-ice-50/30 border-b border-ice-200 px-4 py-2.5">
               <h2 className="font-extrabold text-slate-900 text-xs tracking-wider uppercase flex items-center gap-1.5">
@@ -249,7 +283,7 @@ export default function App() {
             </div>
           </div>
 
-          {/* Configuration and Execute Options */}
+          {/* Options and Action Button */}
           <div className="bg-gradient-to-b from-ice-50/90 to-white/95 border border-ice-200/80 rounded-xl p-4 shadow-md flex flex-col space-y-3">
             <div>
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block mb-1.5">Diagnostic Format</span>
@@ -318,7 +352,7 @@ export default function App() {
                 <Loader className="w-8 h-8 text-ice-500 animate-spin mb-3" />
                 <h3 className="text-slate-900 font-bold text-xs uppercase tracking-wider mb-1">Executing Analysis</h3>
                 <p className="text-slate-400 text-[11px] max-w-xs leading-relaxed animate-pulse">
-                  Isolating log anomalies and compiling file correlation models...
+                  Scanning log files, compiling stack trace variables, and generating code correlation models...
                 </p>
               </div>
             )}
